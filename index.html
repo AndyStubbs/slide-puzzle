@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>Slide Puzzle</title>
+	<meta charset="UTF-8">
+	<link rel="icon" type="image/png" href="tiger-ico.png" />
+	<style>
+		body {
+			text-align: center;
+			background-color: black;
+			color: white;
+		}
+
+		#slide_box {
+			width: 600px;
+			height: 600px;
+			border: 1px solid black;
+			margin-left: -300px;
+			margin-top: -300px;
+			top: 50%;
+			left: 50%;
+			background-color: black;
+			font-size: 0px;
+			position: absolute;
+		}
+
+		.puzzle_piece {
+			width: 200px;
+			height: 200px;
+			background-image: url( tiger.jpg );
+			background-size: 600px 600px;
+			display: inline-block;
+			margin: 0;
+			box-shadow: inset 0 0 10px #000000;
+			position: absolute;
+			transition-duration: 0.1s;
+		}
+
+		.noselect {
+		  -webkit-touch-callout: none; /* iOS Safari */
+			-webkit-user-select: none; /* Safari */
+			 -khtml-user-select: none; /* Konqueror HTML */
+			   -moz-user-select: none; /* Firefox */
+				-ms-user-select: none; /* Internet Explorer/Edge */
+					user-select: none; /* Non-prefixed version, currently
+										  supported by Chrome and Opera */
+		}
+
+		.puzzle_piece span {
+			font-size: 64px;
+			position: relative;
+			top: 65px;
+			transition-duration: 0.5s;
+			opacity: 0;
+			text-shadow: 1px 1px 4px black;
+		}
+
+		#controls {
+			position: absolute;
+			right: 10px;
+			bottom: 10px;
+		}
+
+		#controls input {
+			background-color: #4CAF50; /* Green */
+			border: none;
+			color: white;
+			padding: 15px 32px;
+			text-align: center;
+			text-decoration: none;
+			display: inline-block;
+			font-size: 16px;
+			
+		}
+
+		#controls input:hover {
+			background-color: #4C8950;
+		}
+
+		#top_left {
+			background-position: 0px 0px;
+			left: 0px;
+			top: 0px;
+		}
+
+		#top_center {
+			background-position: 400px 0px;
+			left: 200px;
+			top: 0px;
+		}
+
+		#top_right {
+			background-position: 200px 0px;
+			left: 400px;
+			top: 0px;
+		}
+
+		#middle_left {
+			background-position: 0px 400px;
+			left: 0px;
+			top: 200px;
+		}
+
+		#middle_center {
+			background-position: 400px 400px;
+			left: 200px;
+			top: 200px;
+		}
+
+		#middle_right {
+			background-position: 200px 400px;
+			left: 400px;
+			top: 200px;
+		}
+
+		#bottom_left {
+			background-position: 0px 200px;
+			left: 0px;
+			top: 400px;
+		}
+
+		#bottom_center {
+			background-position: 400px 200px;
+			left: 200px;
+			top: 400px;
+		}
+
+		#bottom_right {
+			background-position: 200px 200px;
+			left: 400px;
+			top: 400px;
+		}
+		
+		audio {
+			display: none;
+		}
+
+		#overlay {
+			position: absolute;
+			left: 0;
+			top: 0;
+			width: 100%;
+			height: 100%;
+			background-color: rgba( 0, 0, 0, 0.5 );
+			transition-duration: 0.5s;
+		}
+
+		#overlay h1 {
+			margin-top: calc( 25% - 30px );
+		}
+	</style>
+</head>
+<body>
+	<h1 id="title" >Slide Puzzle</h1>
+	<div id="slide_box" class="noselect">
+		<div id="top_left" class="puzzle_piece" data-animated="no"><span>0</span></div>
+		<div id="top_center" class="puzzle_piece" data-animated="no"><span>1</span></div>
+		<div id="top_right" class="puzzle_piece" data-animated="no"><span>2</span></div>
+		<div id="middle_left" class="puzzle_piece" data-animated="no"><span>3</span></div>
+		<div id="middle_center" class="puzzle_piece" data-animated="no"><span>4</span></div>
+		<div id="middle_right" class="puzzle_piece" data-animated="no"><span>5</span></div>
+		<div id="bottom_left" class="puzzle_piece" data-animated="no"><span>6</span></div>
+		<div id="bottom_center" class="puzzle_piece" data-animated="no"><span>7</span></div>
+		<div id="bottom_right" class="puzzle_piece" data-animated="no"><span>8</span></div>
+	</div>
+	<div id="controls">
+		<input id="hint_button" type="button" value="Hint" />
+	</div>
+	<div id="overlay">
+		<h1>Click to Screen to Start</h1>
+	</div>
+	<audio id="slide_sound" src="slide.wav" preload="auto" controls="none"></audio>
+	<audio id="slide_fast_sound" src="slide_fast.wav" preload="auto" controls="none"></audio>
+	<audio id="applause_sound" src="135191__makosan__theatre-applause.wav" preload="auto" controls="none"></audio>
+	<script>
+		var delay = 125;
+		var piece_width = 200;
+		var piece_height = 200;
+		var slide_box = document.getElementById( "slide_box" );
+		var mixes = 35;
+		var is_animating = false;
+		var solution = {};
+		var game_over = false;
+		var hint = false;
+		var last_swapped = false;
+
+		document.getElementById( "overlay" ).addEventListener( "click", function () {
+			var overlay = document.getElementById( "overlay" );
+			overlay.style.opacity = 0;
+			setTimeout( function () {
+				document.body.removeChild( overlay );
+			}, 500 );
+			init();
+		} );
+
+		function init() {
+			get_solution();
+			document.getElementById( "top_left" ).style.transitionDuration = "1s";
+			document.getElementById( "top_left" ).style.opacity = "0";
+			setTimeout( function () { 
+				document.getElementById( "top_left" ).style.transitionDuration = "0.1s";
+				mix_puzzle();
+			}, 1000 );
+		}
+
+		function get_solution() {
+			var puzzle_pieces = document.querySelectorAll( ".puzzle_piece" );
+			for( var i = 0; i < puzzle_pieces.length; i++ ) {
+				solution[ puzzle_pieces[ i ].id ] = { 
+					x: get_x( puzzle_pieces[ i ] ), 
+					y: get_y( puzzle_pieces[ i ] )
+				};
+			}
+		}
+
+		function mix_puzzle() {
+			mixes--;
+			if( mixes >= 0 ) {
+				var puzzle_piece = document.getElementById( "top_left" );
+				var neighbors = get_neighbors( puzzle_piece );
+				var swap_piece = false;
+				do {
+					swap_piece = neighbors[ Math.floor( Math.random() * neighbors.length ) ];
+				} while( swap_piece === last_swapped );
+				last_swapped = swap_piece;
+				play_sound( "slide_fast_sound" );
+				swap_pieces( puzzle_piece, swap_piece, mix_puzzle );
+			} else {
+				start();
+			}
+		}
+
+		function swap_pieces( puzzle_piece, swap_piece, on_complete ) {
+			is_animating = true;
+			var left = puzzle_piece.offsetLeft;
+			var top = puzzle_piece.offsetTop;
+			puzzle_piece.style.left = swap_piece.offsetLeft + "px";
+			puzzle_piece.style.top = swap_piece.offsetTop + "px";
+			swap_piece.style.left = left + "px";
+			swap_piece.style.top = top + "px";
+			setTimeout( function () { 
+				is_animating = false;
+				on_complete();
+			}, delay );
+		}
+
+		function start() {
+			delay = 500;
+			var puzzle_pieces = document.querySelectorAll( ".puzzle_piece" );
+			for( var i = 0; i < puzzle_pieces.length; i++ ) {
+				puzzle_pieces[ i ].style.transitionDuration = ( delay / 1000 ) + "s";
+			}
+			var puzzle_pieces = document.querySelectorAll( ".puzzle_piece" );
+			for( var i = 0; i < puzzle_pieces.length; i++ ) {
+				puzzle_pieces[ i ].onclick = click_puzzle;
+			}
+			document.getElementById( "hint_button" ).onclick = click_hint;
+		}
+
+		function click_hint() {
+			hint = ! hint;
+			var labels = document.querySelectorAll( ".puzzle_piece span" );
+			for( var i = 0; i < labels.length; i++ ) {
+				if( hint ) {
+					labels[ i ].style.opacity = "1";
+				} else {
+					labels[ i ].style.opacity = "0";
+				}
+			}
+		}
+
+		function click_puzzle() {
+			if( ! game_over ) {
+				check_swap( this );
+			}
+		}
+
+		function get_neighbors( piece ) {
+			var checks = [
+				//Check Right
+				{ x: get_x( piece ) + piece_width, y: get_y( piece ) },
+				//Check Left
+				{ x: get_x( piece ) - piece_width, y: get_y( piece ) },
+				//Check Up
+				{ x: get_x( piece ), y: get_y( piece ) - piece_height },
+				//Check Down
+				{ x: get_x( piece ), y: get_y( piece ) + piece_height },
+			];
+
+			var neighbors = [];
+			for( var i = 0; i < checks.length; i++ ) {
+				var checkElement = document.elementFromPoint( checks[ i ].x, checks[ i ].y );
+				if( checkElement && checkElement.parentElement ) {
+					neighbors.push( checkElement.parentElement );
+				}
+			}
+
+			return neighbors;
+		}
+
+		function check_swap( item ) {
+			if( ! is_animating ) {
+				var neighbors = get_neighbors( item );
+				for( var i = 0; i < neighbors.length; i++ ) {
+					if( neighbors[ i ].id === "top_left" ) {
+						play_sound( "slide_sound" );
+						swap_pieces( item, neighbors[ i ], check_win );
+						break;
+					}
+				}
+			} else {
+				setTimeout( function () {
+					check_swap( item );
+				}, 100 );
+			}
+		}
+
+		function play_sound( sound_id ) {
+			var audio = document.getElementById( sound_id );
+			audio.play();
+		}
+
+		function check_win() {
+			var win = true;
+			var puzzle_pieces = document.querySelectorAll( ".puzzle_piece" );
+			for( var i = 0; i < puzzle_pieces.length; i++ ) {
+				var x = get_x( puzzle_pieces[ i ] );
+				var y = get_y( puzzle_pieces[ i ] );
+				if( solution[ puzzle_pieces[ i ].id ].x !== x || solution[ puzzle_pieces[ i ].id ].y !== y ) {
+					win = false;
+				}
+			}
+			if( win ) {
+				document.getElementById( "title" ).innerHTML = "You Win!";
+				document.getElementById( "top_left" ).style.opacity = "1";
+				game_over = true;
+				play_sound( "applause_sound" );
+				for( var i = 0; i < puzzle_pieces.length; i++ ) {
+					puzzle_pieces[ i ].style.boxShadow = "none";
+				}
+			}
+		}
+
+		function get_x( item ) {
+			return slide_box.offsetLeft + item.offsetLeft + piece_width / 2;
+			//return slide_box.offsetLeft + item.offsetLeft + 3;
+		}
+
+		function get_y( item ) {
+			return slide_box.offsetTop + item.offsetTop + piece_height / 2;
+			//return slide_box.offsetTop + item.offsetTop + 3;
+		}
+
+	</script>
+</body>
+</html>
